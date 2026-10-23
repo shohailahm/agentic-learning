@@ -10,34 +10,40 @@ export type RunState =
 export type State = {
   run: RunState;
   text: string;
+  resultKey: string | null;
   error?: string;
 };
 
 export type Action =
-  | { type: "SUBMIT" }
+  | { type: "SUBMIT"; resultKey: string }
   | { type: "START_GENERATING" }
   | { type: "COMPLETE"; text: string }
   | { type: "INTERRUPTED" }
   | { type: "STOP" }
   | { type: "FAILED"; message: string }
-  | { type: "RETRY" };
+  | { type: "RETRY"; resultKey: string };
 
-export const initialState: State = { run: "idle", text: "" };
+export const initialState: State = { run: "idle", text: "", resultKey: null };
 
 export function runReducer(state: State, action: Action): State {
   switch (action.type) {
     case "SUBMIT":
     case "RETRY":
-      return { run: "submitting", text: "", error: undefined };
+      return {
+        run: "submitting",
+        text: "",
+        resultKey: action.resultKey,
+        error: undefined,
+      };
     case "START_GENERATING":
       return { ...state, run: "generating", error: undefined };
     case "COMPLETE":
-      return { run: "complete", text: action.text };
+      return { ...state, run: "complete", text: action.text };
     case "INTERRUPTED":
       return { ...state, run: "interrupted" };
     case "STOP":
       return { ...state, run: "cancelled" };
     case "FAILED":
-      return { run: "failed", text: "", error: action.message };
+      return { ...state, run: "failed", text: "", error: action.message };
   }
 }

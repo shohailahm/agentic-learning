@@ -15,7 +15,7 @@ function statusText(run: RunState) {
     case "interrupted":
       return "Generation interrupted. Partial draft preserved.";
     case "cancelled":
-      return "Generation stopped.";
+      return "You stopped the query or generation.";
     default:
       return "";
   }
@@ -28,15 +28,20 @@ export function TicketComposer() {
   );
   const [state, dispatch] = useReducer(runReducer, initialState);
   const timer = useRef<number | undefined>(undefined);
+  const resultKey = useRef(0);
 
   function startMockRun(action: "SUBMIT" | "RETRY" = "SUBMIT") {
     if (!message.trim()) {
-      dispatch({ type: "FAILED", message: "Add a ticket message before submitting." });
+      dispatch({
+        type: "FAILED",
+        message: "Add a ticket message before submitting.",
+      });
       return;
     }
 
     window.clearTimeout(timer.current);
-    dispatch({ type: action });
+    resultKey.current += 1;
+    dispatch({ type: action, resultKey: `result-${resultKey.current}` });
     timer.current = window.setTimeout(() => {
       dispatch({ type: "START_GENERATING" });
       timer.current = window.setTimeout(() => {
@@ -51,7 +56,10 @@ export function TicketComposer() {
   }
 
   const isRunning = state.run === "submitting" || state.run === "generating";
-  const canRetry = state.run === "failed" || state.run === "interrupted" || state.run === "cancelled";
+  const canRetry =
+    state.run === "failed" ||
+    state.run === "interrupted" ||
+    state.run === "cancelled";
 
   return (
     <section className="panel lab-panel">
@@ -79,6 +87,7 @@ export function TicketComposer() {
           <button
             className={mode === option ? "mode active" : "mode"}
             key={option}
+            aria-pressed={mode === option}
             onClick={() => setMode(option)}
           >
             {option === "vague" ? "Vague instruction" : "Scoped instruction"}
@@ -93,7 +102,11 @@ export function TicketComposer() {
       </div>
 
       <div className="actions">
-        <button className="primary" onClick={() => startMockRun()} disabled={isRunning}>
+        <button
+          className="primary"
+          onClick={() => startMockRun()}
+          disabled={isRunning}
+        >
           Generate mock draft
         </button>
         {isRunning && (
@@ -117,12 +130,19 @@ export function TicketComposer() {
         </div>
       )}
 
-      <div className="draft" aria-live="polite">
+      <div
+        className="draft"
+        aria-label="Draft response"
+        aria-live="polite"
+        aria-busy={isRunning}
+      >
         <div className="draft-heading">
           <span className="section-label">Draft response</span>
           {state.text && <span className="generated">Generated locally</span>}
         </div>
-        <p>{state.text || "Submit the ticket to inspect the mock response."}</p>
+        <p key={state.resultKey ?? "empty-result"}>
+          {state.text || "Submit the ticket to inspect the mock response."}
+        </p>
       </div>
     </section>
   );
